@@ -138,6 +138,162 @@
             </div>
             <canvas id="gameCanvas"></canvas>
         </div>
+        <!-- In the HTML, add new UI elements -->
+        <div class="ui-panel">
+            <!-- Existing buttons ... -->
+            <button class="upgrade-btn" id="autoClickBtn" onclick="upgradeAutoClick()">
+                Auto Collector (Cost: <span id="autoClickCost">100</span>)
+            </button>
+            <button class="upgrade-btn" id="autoSpeedBtn" onclick="upgradeAutoSpeed()">
+                Auto Speed (Cost: <span id="autoSpeedCost">150</span>)
+            </button>
+        </div>
+
+        <script>
+        // Add these new variables
+        let backgroundStars = [];
+        let autoClickRate = 0; // clicks per second
+        let autoClickCost = 100;
+        let autoSpeedCost = 150;
+        const constellationThreshold = 50;
+
+        // Add new UI elements
+        const autoClickCostDisplay = document.getElementById('autoClickCost');
+        const autoSpeedCostDisplay = document.getElementById('autoSpeedCost');
+
+        // Modify drawBackgroundStars
+        function drawBackgroundStars() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (backgroundStars.length < constellationThreshold) {
+                // Draw individual stars
+                backgroundStars.forEach(star => {
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            } else {
+                // Draw constellation (simple Big Dipper as example)
+                drawConstellation();
+            }
+        }
+
+        // New constellation drawing function
+        function drawConstellation() {
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            // Big Dipper coordinates (relative to canvas size)
+            const points = [
+                {x: canvas.width * 0.3, y: canvas.height * 0.3},
+                {x: canvas.width * 0.35, y: canvas.height * 0.35},
+                {x: canvas.width * 0.4, y: canvas.height * 0.35},
+                {x: canvas.width * 0.45, y: canvas.height * 0.3},
+                {x: canvas.width * 0.5, y: canvas.height * 0.25},
+                {x: canvas.width * 0.55, y: canvas.height * 0.3},
+                {x: canvas.width * 0.6, y: canvas.height * 0.35}
+            ];
+            
+            ctx.moveTo(points[0].x, points[0].y);
+            points.forEach(point => ctx.lineTo(point.x, point.y));
+            ctx.stroke();
+            
+            // Draw stars at points
+            points.forEach(point => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Modify handleInteraction
+        function handleInteraction(event) {
+            // ... existing code ...
+            
+            // Add new background star
+            const rect = canvas.getBoundingClientRect();
+            let x = (event.type === 'touchstart' ? event.touches[0].clientX : event.clientX) - rect.left;
+            let y = (event.type === 'touchstart' ? event.touches[0].clientY : event.clientY) - rect.top;
+            
+            if (backgroundStars.length < constellationThreshold) {
+                backgroundStars.push({
+                    x: x,
+                    y: y,
+                    size: Math.random() * 2
+                });
+            }
+            
+            drawBackgroundStars();
+            // ... rest of existing code ...
+        }
+
+        // Add automation
+        function startAutomation() {
+            setInterval(() => {
+                if (autoClickRate > 0) {
+                    score += clickValue * multiplier * autoClickRate / 10;
+                    scoreDisplay.textContent = Math.floor(score);
+                    
+                    // Add visual feedback for auto-clicks
+                    const x = Math.random() * canvas.width;
+                    const y = Math.random() * canvas.height;
+                    const star = document.createElement('div');
+                    star.classList.add('star');
+                    star.style.width = `${starSize}px`;
+                    star.style.height = `${starSize}px`;
+                    star.style.left = `${x}px`;
+                    star.style.top = `${y}px`;
+                    star.style.animation = `fadeOut ${starFadeTime / 1000}s ease forwards`;
+                    gameContainer.appendChild(star);
+                    setTimeout(() => star.remove(), starFadeTime);
+                }
+            }, 100); // Runs 10 times per second
+        }
+
+        // New upgrade functions
+        function upgradeAutoClick() {
+            if (score >= autoClickCost) {
+                score -= autoClickCost;
+                autoClickRate += 1;
+                autoClickCost = Math.floor(autoClickCost * 1.8);
+                updateUI();
+            } else {
+                alert("Not enough stars!");
+            }
+        }
+
+        function upgradeAutoSpeed() {
+            if (score >= autoSpeedCost) {
+                score -= autoSpeedCost;
+                autoClickRate += 2;
+                autoSpeedCost = Math.floor(autoSpeedCost * 1.9);
+                updateUI();
+            } else {
+                alert("Not enough stars!");
+            }
+        }
+
+        // Modify updateUI
+        function updateUI() {
+            scoreDisplay.textContent = Math.floor(score);
+            upgradeClickCostDisplay.textContent = upgradeClickCost;
+            upgradeSpeedCostDisplay.textContent = upgradeSpeedCost;
+            upgradeMultiplierCostDisplay.textContent = upgradeMultiplierCost;
+            upgradeSizeCostDisplay.textContent = upgradeSizeCost;
+            autoClickCostDisplay.textContent = autoClickCost;
+            autoSpeedCostDisplay.textContent = autoSpeedCost;
+        }
+
+        // Start the automation when page loads
+        startAutomation();
+
+        // Modify initCanvas
+        function initCanvas() {
+            drawBackgroundStars();
+        }
+        </script>
         <script>
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
