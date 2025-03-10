@@ -1,133 +1,205 @@
-const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
-canvas.width = 800;
-canvas.height = 600;
+// Game state
+let particles = [];
+let particleCount = 0;
+let mass = 0;
+let planets = 0;
 
-const centerX = canvas.width / 2;
-const centerY = canvas.height / 2;
-
-let gameState = {
-    mass: 0,
-    clickPower: 1,
-    autoParticles: 0,
-    mergeBonus: 1,
-    clickUpgradeCost: 50,
-    autoUpgradeCost: 100,
-    mergeUpgradeCost: 200
+// Upgrade levels and costs
+let gravityLevel = 1;
+let particleSizeLevel = 1;
+let autoClickerLevel = 0;
+const baseCosts = {
+    gravity: 10,
+    size: 20,
+    auto: 50
 };
 
-let particles = [];
+// Possible particle symbols
+const symbols = ['✦', '✧', '❉', '❊', '✺', '✹', '✸', '✷'];
+const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96c0eb', '#d9b8f1'];
 
-class Particle {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.size = 5;
-        this.speed = 2;
-        this.angle = Math.atan2(centerY - y, centerX - x);
-    }
+// DOM elements
+const gameArea = document.getElementById('game-area');
+const particleCountEl = document.getElementById('particle-count');
+const massCountEl = document.getElementById('mass-count');
+const planetCountEl = document.getElementById('planet-count');
+const gravityCostEl = document.getElementById('gravity-cost');
+const sizeCostEl = document.getElementById('size-cost');
+const autoCostEl = document.getElementById('auto-cost');
 
-    update() {
-        this.x += Math.cos(this.angle) * this.speed;
-        this.y += Math.sin(this.angle) * this.speed;
+// Click handler
+gameArea.addEventListener('click', (e) => {
+    createParticle(e.clientX - gameArea.offsetLeft, e.clientY - gameArea.offsetTop);
+});
 
-        // Check if particle reached center
-        if (Math.abs(this.x - centerX) < 5 && Math.abs(this.y - centerY) < 5) {
-            gameState.mass += gameState.clickPower * gameState.mergeBonus;
-            return true; // Particle should be removed
-        }
-        return false;
-    }
+// Create new particle
+function createParticle(x, y) {
+    particleCount++;
+    const size = 10 + particleSizeLevel * 2;
+    
+    const particle = {
+        x: x,
+        y: y,
+        size: size,
+        mass: 1,
+        element: document.createElement('div'),
+        symbol: symbols[Math.floor(Math.random() * symbols.length)],
+        color: colors[Math.floor(Math.random() * colors.length)],
+        dx: 0,
+        dy: 0
+    };
 
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = 'white';
-        ctx.fill();
-    }
+    particle.element.className = 'particle';
+    particle.element.style.width = `${size}px`;
+    particle.element.style.height = `${size}px`;
+    particle.element.style.left = `${x}px`;
+    particle.element.style.top = `${y}px`;
+    particle.element.style.background = particle.color;
+    particle.element.innerHTML = particle.symbol;
+    
+    gameArea.appendChild(particle.element);
+    particles.push(particle);
+    
+    updateStats();
 }
 
-// UI Elements
-const massDisplay = document.getElementById('mass');
-const ppsDisplay = document.getElementById('pps');
-const clickUpgrade = document.getElementById('clickUpgrade');
-const autoUpgrade = document.getElementById('autoUpgrade');
-const mergeUpgrade = document.getElementById('mergeUpgrade');
-
-// Event Listeners
-canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    particles.push(new Particle(x, y));
-});
-
-clickUpgrade.addEventListener('click', () => {
-    if (gameState.mass >= gameState.clickUpgradeCost) {
-        gameState.mass -= gameState.clickUpgradeCost;
-        gameState.clickPower += 1;
-        gameState.clickUpgradeCost = Math.floor(gameState.clickUpgradeCost * 1.5);
-        updateUI();
-    }
-});
-
-autoUpgrade.addEventListener('click', () => {
-    if (gameState.mass >= gameState.autoUpgradeCost) {
-        gameState.mass -= gameState.autoUpgradeCost;
-        gameState.autoParticles += 1;
-        gameState.autoUpgradeCost = Math.floor(gameState.autoUpgradeCost * 1.5);
-        updateUI();
-    }
-});
-
-mergeUpgrade.addEventListener('click', () => {
-    if (gameState.mass >= gameState.mergeUpgradeCost) {
-        gameState.mass -= gameState.mergeUpgradeCost;
-        gameState.mergeBonus += 0.5;
-        gameState.mergeUpgradeCost = Math.floor(gameState.mergeUpgradeCost * 1.5);
-        updateUI();
-    }
-});
-
-function updateUI() {
-    massDisplay.textContent = Math.floor(gameState.mass);
-    ppsDisplay.textContent = gameState.autoParticles;
-    clickUpgrade.textContent = `Increase Click Power (Cost: ${gameState.clickUpgradeCost})`;
-    autoUpgrade.textContent = `Auto Particle Generator (Cost: ${gameState.autoUpgradeCost})`;
-    mergeUpgrade.textContent = `Better Particle Merging (Cost: ${gameState.mergeUpgradeCost})`;
-
-    clickUpgrade.disabled = gameState.mass < gameState.clickUpgradeCost;
-    autoUpgrade.disabled = gameState.mass < gameState.autoUpgradeCost;
-    mergeUpgrade.disabled = gameState.mass < gameState.mergeUpgradeCost;
-}
-
+// Game loop
 function gameLoop() {
-    // Clear canvas
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const centerX = gameArea.clientWidth / 2;
+    const centerY = gameArea.clientHeight / 2;
 
-    // Draw planet
-    const planetSize = Math.min(100, Math.log(gameState.mass + 1) * 10);
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, planetSize, 0, Math.PI * 2);
-    ctx.fillStyle = '#666';
-    ctx.fill();
+    particles.forEach((particle, index) => {
+        // Calculate attraction to center
+        const dx = centerX - particle.x;
+        const dy = centerY - particle.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 5) {
+            const force = (gravityLevel * 0.1) / Math.max(1, distance);
+            particle.dx += (dx / distance) * force;
+            particle.dy += (dy / distance) * force;
+            
+            // Update position
+            particle.x += particle.dx;
+            particle.y += particle.dy;
+            
+            // Update DOM
+            particle.element.style.left = `${particle.x}px`;
+            particle.element.style.top = `${particle.y}px`;
+        } else {
+            // Particle reached center
+            mass += particle.mass;
+            gameArea.removeChild(particle.element);
+            particles.splice(index, 1);
+            
+            // Create planet if enough mass
+            if (mass >= 100) {
+                planets++;
+                mass -= 100;
+                createPlanetEffect();
+            }
+        }
+    });
 
-    // Update and draw particles
-    particles = particles.filter(particle => !particle.update());
-    particles.forEach(particle => particle.draw());
-
-    // Auto particle generation
-    if (gameState.autoParticles > 0 && Math.random() < 0.1) {
-        const angle = Math.random() * Math.PI * 2;
-        const radius = Math.max(canvas.width, canvas.height) / 2;
-        const x = centerX + Math.cos(angle) * radius;
-        const y = centerY + Math.sin(angle) * radius;
-        particles.push(new Particle(x, y));
+    // Check for particle collisions
+    for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+            const p1 = particles[i];
+            const p2 = particles[j];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < p1.size) {
+                // Merge particles
+                p1.mass += p2.mass;
+                p1.size += 2;
+                p1.element.style.width = `${p1.size}px`;
+                p1.element.style.height = `${p1.size}px`;
+                gameArea.removeChild(p2.element);
+                particles.splice(j, 1);
+                j--;
+            }
+        }
     }
 
-    updateUI();
+    updateStats();
     requestAnimationFrame(gameLoop);
+}
+
+// Visual effect for new planet
+function createPlanetEffect() {
+    const planet = document.createElement('div');
+    planet.className = 'particle';
+    planet.style.width = '50px';
+    planet.style.height = '50px';
+    planet.style.background = '#ff6b6b';
+    planet.style.left = '50%';
+    planet.style.top = '50%';
+    planet.style.transform = 'translate(-50%, -50%)';
+    planet.style.opacity = '1';
+    
+    gameArea.appendChild(planet);
+    
+    setTimeout(() => {
+        planet.style.transition = 'all 1s';
+        planet.style.opacity = '0';
+        planet.style.transform = 'translate(-50%, -50%) scale(2)';
+        setTimeout(() => gameArea.removeChild(planet), 1000);
+    }, 100);
+}
+
+// Update UI stats
+function updateStats() {
+    particleCountEl.textContent = particleCount;
+    massCountEl.textContent = Math.floor(mass);
+    planetCountEl.textContent = planets;
+    
+    // Update upgrade costs
+    gravityCostEl.textContent = Math.floor(baseCosts.gravity * Math.pow(1.5, gravityLevel));
+    sizeCostEl.textContent = Math.floor(baseCosts.size * Math.pow(1.5, particleSizeLevel));
+    autoCostEl.textContent = Math.floor(baseCosts.auto * Math.pow(1.5, autoClickerLevel));
+    
+    document.getElementById('gravity-upgrade').disabled = mass < baseCosts.gravity * Math.pow(1.5, gravityLevel);
+    document.getElementById('size-upgrade').disabled = mass < baseCosts.size * Math.pow(1.5, particleSizeLevel);
+    document.getElementById('auto-upgrade').disabled = mass < baseCosts.auto * Math.pow(1.5, autoClickerLevel);
+}
+
+// Upgrade functions
+function buyGravity() {
+    const cost = Math.floor(baseCosts.gravity * Math.pow(1.5, gravityLevel));
+    if (mass >= cost) {
+        mass -= cost;
+        gravityLevel++;
+    }
+}
+
+function buyParticleSize() {
+    const cost = Math.floor(baseCosts.size * Math.pow(1.5, particleSizeLevel));
+    if (mass >= cost) {
+        mass -= cost;
+        particleSizeLevel++;
+    }
+}
+
+function buyAutoClicker() {
+    const cost = Math.floor(baseCosts.auto * Math.pow(1.5, autoClickerLevel));
+    if (mass >= cost) {
+        mass -= cost;
+        autoClickerLevel++;
+        
+        // Start auto-clicker if first purchase
+        if (autoClickerLevel === 1) {
+            setInterval(() => {
+                for (let i = 0; i < autoClickerLevel; i++) {
+                    createParticle(
+                        Math.random() * gameArea.clientWidth,
+                        Math.random() * gameArea.clientHeight
+                    );
+                }
+            }, 1000);
+        }
+    }
 }
 
 // Start the game
