@@ -3,33 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Particle Forge</title>
+    <title>Donkey Kong</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="game-container">
-        <div class="stats">
-            <div>Particles: <span id="particle-count">0</span></div>
-            <div>Mass: <span id="mass-count">0</span></div>
-            <div>Planets: <span id="planet-count">0</span></div>
-        </div>
-        
         <div id="game-area">
-            <div id="center-mass" class="center-mass"></div>
+            <div id="mario"></div>
+            <div id="donkey-kong"></div>
+            <div id="pauline"></div>
+            <!-- Platforms and ladders will be dynamically generated -->
         </div>
-
-        <div class="upgrades">
-            <h3>Upgrades</h3>
-            <button onclick="buyGravity()" id="gravity-upgrade">
-                Stronger Gravity (Cost: <span id="gravity-cost">10</span>)
-            </button>
-            <button onclick="buyParticleSize()" id="size-upgrade">
-                Larger Particles (Cost: <span id="size-cost">20</span>)
-            </button>
-            <button onclick="buyAutoClicker()" id="auto-upgrade">
-                Auto Collector (Cost: <span id="auto-cost">50</span>)
-            </button>
-        </div>
+        <div id="game-over" class="hidden">Game Over! Press R to Restart</div>
+        <div id="win" class="hidden">You Win! Press R to Play Again</div>
     </div>
     <script src="game.js"></script>
 </body>

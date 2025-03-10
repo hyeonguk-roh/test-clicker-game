@@ -1,214 +1,273 @@
-// Game state
-let particles = [];
-let particleCount = 0;
-let mass = 0;
-let planets = 0;
+// Game constants
+const GAME_WIDTH = 800;
+const GAME_HEIGHT = 600;
+const GRAVITY = 0.5;
+const MARIO_SPEED = 3;
+const MARIO_JUMP_FORCE = 12;
+const BARREL_SPEED = 2;
+const BARREL_SPAWN_RATE = 2000; // Milliseconds
 
-// Upgrade levels and costs
-let gravityLevel = 1;
-let particleSizeLevel = 1;
-let autoClickerLevel = 0;
-const baseCosts = {
-    gravity: 10,
-    size: 20,
-    auto: 50
+// Game state
+let mario = {
+    x: 50,
+    y: GAME_HEIGHT - 40,
+    width: 30,
+    height: 40,
+    dx: 0,
+    dy: 0,
+    jumping: false,
+    onLadder: false,
+    climbing: false
 };
 
-// Possible particle symbols
-const symbols = ['✦', '✧', '❉', '❊', '✺', '✹', '✸', '✷'];
-const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96c0eb', '#d9b8f1'];
+let platforms = [];
+let ladders = [];
+let barrels = [];
+let gameOver = false;
+let gameWon = false;
 
 // DOM elements
 const gameArea = document.getElementById('game-area');
-const particleCountEl = document.getElementById('particle-count');
-const massCountEl = document.getElementById('mass-count');
-const planetCountEl = document.getElementById('planet-count');
-const gravityCostEl = document.getElementById('gravity-cost');
-const sizeCostEl = document.getElementById('size-cost');
-const autoCostEl = document.getElementById('auto-cost');
+const marioElement = document.getElementById('mario');
+const gameOverElement = document.getElementById('game-over');
+const winElement = document.getElementById('win');
 
-// Updated click handler
-gameArea.addEventListener('click', (e) => {
-    // Get the position relative to the game area
-    const rect = gameArea.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    // Ensure coordinates are within bounds
-    if (x >= 0 && x <= gameArea.clientWidth && y >= 0 && y <= gameArea.clientHeight) {
-        createParticle(x, y);
+// Level setup (platforms and ladders)
+function setupLevel() {
+    // Platforms (slanted to mimic the original game)
+    platforms.push({ x: 0, y: GAME_HEIGHT - 10, width: GAME_WIDTH, height: 10 }); // Ground
+    platforms.push({ x: 0, y: GAME_HEIGHT - 100, width: GAME_WIDTH - 100, height: 10 }); // Second platform
+    platforms.push({ x: 100, y: GAME_HEIGHT - 200, width: GAME_WIDTH - 200, height: 10 }); // Third platform
+    platforms.push({ x: 0, y: GAME_HEIGHT - 300, width: GAME_WIDTH - 300, height: 10 }); // Fourth platform
+    platforms.push({ x: 200, y: GAME_HEIGHT - 400, width: GAME_WIDTH - 400, height: 10 }); // Fifth platform
+    platforms.push({ x: 0, y: GAME_HEIGHT - 500, width: GAME_WIDTH - 500, height: 10 }); // Top platform
+
+    // Ladders
+    ladders.push({ x: 150, y: GAME_HEIGHT - 100, width: 20, height: 90 }); // Ground to second
+    ladders.push({ x: 600, y: GAME_HEIGHT - 200, width: 20, height: 90 }); // Second to third
+    ladders.push({ x: 150, y: GAME_HEIGHT - 300, width: 20, height: 90 }); // Third to fourth
+    ladders.push({ x: 600, y: GAME_HEIGHT - 400, width: 20, height: 90 }); // Fourth to fifth
+    ladders.push({ x: 150, y: GAME_HEIGHT - 500, width: 20, height: 90 }); // Fifth to top
+
+    // Render platforms
+    platforms.forEach(platform => {
+        const platformElement = document.createElement('div');
+        platformElement.className = 'platform';
+        platformElement.style.left = `${platform.x}px`;
+        platformElement.style.bottom = `${platform.y}px`;
+        platformElement.style.width = `${platform.width}px`;
+        platformElement.style.height = `${platform.height}px`;
+        gameArea.appendChild(platformElement);
+    });
+
+    // Render ladders
+    ladders.forEach(ladder => {
+        const ladderElement = document.createElement('div');
+        ladderElement.className = 'ladder';
+        ladderElement.style.left = `${ladder.x}px`;
+        ladderElement.style.bottom = `${ladder.y}px`;
+        ladderElement.style.width = `${ladder.width}px`;
+        ladderElement.style.height = `${ladder.height}px`;
+        gameArea.appendChild(ladderElement);
+    });
+}
+
+// Input handling
+document.addEventListener('keydown', (e) => {
+    if (gameOver || gameWon) {
+        if (e.key === 'r' || e.key === 'R') {
+            resetGame();
+        }
+        return;
+    }
+
+    if (e.key === 'ArrowLeft') {
+        mario.dx = -MARIO_SPEED;
+    } else if (e.key === 'ArrowRight') {
+        mario.dx = MARIO_SPEED;
+    } else if (e.key === ' ') {
+        if (!mario.jumping && !mario.onLadder) {
+            mario.dy = MARIO_JUMP_FORCE;
+            mario.jumping = true;
+        }
+    } else if (e.key === 'ArrowUp' && mario.onLadder) {
+        mario.climbing = true;
+        mario.dy = MARIO_SPEED;
+    } else if (e.key === 'ArrowDown' && mario.onLadder) {
+        mario.climbing = true;
+        mario.dy = -MARIO_SPEED;
     }
 });
 
-// Create new particle
-function createParticle(x, y) {
-    particleCount++;
-    const size = 10 + particleSizeLevel * 2;
-    
-    const particle = {
-        x: x,
-        y: y,
-        size: size,
-        mass: 1,
-        element: document.createElement('div'),
-        symbol: symbols[Math.floor(Math.random() * symbols.length)],
-        color: colors[Math.floor(Math.random() * colors.length)],
-        dx: 0,
-        dy: 0
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        mario.dx = 0;
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        mario.climbing = false;
+        mario.dy = 0;
+    }
+});
+
+// Spawn barrels
+function spawnBarrel() {
+    if (gameOver || gameWon) return;
+
+    const barrel = {
+        x: 110,
+        y: GAME_HEIGHT - 500 - 20,
+        width: 20,
+        height: 20,
+        dx: BARREL_SPEED,
+        platformIndex: platforms.length - 1
     };
 
-    particle.element.className = 'particle';
-    particle.element.style.width = `${size}px`;
-    particle.element.style.height = `${size}px`;
-    particle.element.style.left = `${particle.x - size/2}px`;
-    particle.element.style.top = `${particle.y - size/2}px`;
-    particle.element.style.background = particle.color;
-    particle.element.innerHTML = particle.symbol;
-    
-    gameArea.appendChild(particle.element);
-    particles.push(particle);
-    
-    updateStats();
+    const barrelElement = document.createElement('div');
+    barrelElement.className = 'barrel';
+    barrelElement.style.left = `${barrel.x}px`;
+    barrelElement.style.bottom = `${barrel.y}px`;
+    gameArea.appendChild(barrelElement);
+    barrel.element = barrelElement;
+
+    barrels.push(barrel);
+}
+
+setInterval(spawnBarrel, BARREL_SPAWN_RATE);
+
+// Collision detection
+function collides(a, b) {
+    return a.x < b.x + b.width &&
+           a.x + a.width > b.x &&
+           a.y < b.y + b.height &&
+           a.y + a.height > b.y;
 }
 
 // Game loop
 function gameLoop() {
-    const centerX = gameArea.clientWidth / 2;
-    const centerY = gameArea.clientHeight / 2;
+    if (gameOver || gameWon) return;
 
-    particles.forEach((particle, index) => {
-        // Calculate attraction to center
-        const dx = centerX - particle.x;
-        const dy = centerY - particle.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance > 5) {
-            const force = (gravityLevel * 0.1) / Math.max(1, distance);
-            particle.dx += (dx / distance) * force;
-            particle.dy += (dy / distance) * force;
-            
-            // Update position
-            particle.x += particle.dx;
-            particle.y += particle.dy;
-            
-            // Update DOM
-            particle.element.style.left = `${particle.x - particle.size/2}px`;
-            particle.element.style.top = `${particle.y - particle.size/2}px`;
-        } else {
-            // Particle reached center
-            mass += particle.mass;
-            gameArea.removeChild(particle.element);
-            particles.splice(index, 1);
-            
-            // Create planet if enough mass
-            if (mass >= 100) {
-                planets++;
-                mass -= 100;
-                createPlanetEffect();
-            }
+    // Update Mario
+    mario.x += mario.dx;
+    mario.y += mario.dy;
+
+    // Apply gravity
+    if (!mario.onLadder) {
+        mario.dy -= GRAVITY;
+    }
+
+    // Keep Mario within bounds
+    if (mario.x < 0) mario.x = 0;
+    if (mario.x + mario.width > GAME_WIDTH) mario.x = GAME_WIDTH - mario.width;
+
+    // Check platform collisions
+    let onPlatform = false;
+    platforms.forEach(platform => {
+        if (mario.dy <= 0 && // Falling or stationary
+            mario.x + mario.width > platform.x &&
+            mario.x < platform.x + platform.width &&
+            mario.y >= platform.y &&
+            mario.y <= platform.y + platform.height + 10) {
+            mario.y = platform.y + platform.height;
+            mario.dy = 0;
+            mario.jumping = false;
+            onPlatform = true;
         }
     });
 
-    // Check for particle collisions
-    for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-            const p1 = particles[i];
-            const p2 = particles[j];
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < p1.size) {
-                // Merge particles
-                p1.mass += p2.mass;
-                p1.size += 2;
-                p1.element.style.width = `${p1.size}px`;
-                p1.element.style.height = `${p1.size}px`;
-                gameArea.removeChild(p2.element);
-                particles.splice(j, 1);
-                j--;
-            }
-        }
+    if (!onPlatform && !mario.onLadder) {
+        mario.jumping = true;
     }
 
-    updateStats();
+    // Check ladder collisions
+    mario.onLadder = false;
+    ladders.forEach(ladder => {
+        if (collides(mario, {
+            x: ladder.x,
+            y: GAME_HEIGHT - ladder.y - ladder.height,
+            width: ladder.width,
+            height: ladder.height
+        })) {
+            mario.onLadder = true;
+            if (!mario.climbing) mario.dy = 0;
+        }
+    });
+
+    // Update barrels
+    barrels.forEach((barrel, index) => {
+        barrel.x += barrel.dx;
+
+        // Barrel falls off platform
+        let onPlatform = false;
+        const currentPlatform = platforms[barrel.platformIndex];
+        if (barrel.x + barrel.width > currentPlatform.x &&
+            barrel.x < currentPlatform.x + currentPlatform.width &&
+            barrel.y >= currentPlatform.y &&
+            barrel.y <= currentPlatform.y + 10) {
+            barrel.y = currentPlatform.y + 10;
+            onPlatform = true;
+        }
+
+        if (!onPlatform) {
+            barrel.y -= GRAVITY * 2;
+            barrel.platformIndex = Math.max(0, barrel.platformIndex - 1);
+        }
+
+        // Remove barrel if it falls off the screen
+        if (barrel.y < 0) {
+            gameArea.removeChild(barrel.element);
+            barrels.splice(index, 1);
+            return;
+        }
+
+        barrel.element.style.left = `${barrel.x}px`;
+        barrel.element.style.bottom = `${barrel.y}px`;
+
+        // Check collision with Mario
+        if (collides(mario, barrel)) {
+            gameOver = true;
+            gameOverElement.classList.remove('hidden');
+        }
+    });
+
+    // Check win condition (Mario reaches Pauline)
+    const pauline = {
+        x: GAME_WIDTH - 70,
+        y: GAME_HEIGHT - 500 - 30,
+        width: 20,
+        height: 30
+    };
+    if (collides(mario, pauline)) {
+        gameWon = true;
+        winElement.classList.remove('hidden');
+    }
+
+    // Update Mario's position
+    marioElement.style.left = `${mario.x}px`;
+    marioElement.style.bottom = `${mario.y}px`;
+
     requestAnimationFrame(gameLoop);
 }
 
-// Visual effect for new planet
-function createPlanetEffect() {
-    const planet = document.createElement('div');
-    planet.className = 'particle';
-    planet.style.width = '50px';
-    planet.style.height = '50px';
-    planet.style.background = '#ff6b6b';
-    planet.style.left = '50%';
-    planet.style.top = '50%';
-    planet.style.transform = 'translate(-50%, -50%)';
-    planet.style.opacity = '1';
-    
-    gameArea.appendChild(planet);
-    
-    setTimeout(() => {
-        planet.style.transition = 'all 1s';
-        planet.style.opacity = '0';
-        planet.style.transform = 'translate(-50%, -50%) scale(2)';
-        setTimeout(() => gameArea.removeChild(planet), 1000);
-    }, 100);
-}
+// Reset game
+function resetGame() {
+    gameOver = false;
+    gameWon = false;
+    gameOverElement.classList.add('hidden');
+    winElement.classList.add('hidden');
 
-// Update UI stats
-function updateStats() {
-    particleCountEl.textContent = particleCount;
-    massCountEl.textContent = Math.floor(mass);
-    planetCountEl.textContent = planets;
-    
-    // Update upgrade costs
-    gravityCostEl.textContent = Math.floor(baseCosts.gravity * Math.pow(1.5, gravityLevel));
-    sizeCostEl.textContent = Math.floor(baseCosts.size * Math.pow(1.5, particleSizeLevel));
-    autoCostEl.textContent = Math.floor(baseCosts.auto * Math.pow(1.5, autoClickerLevel));
-    
-    document.getElementById('gravity-upgrade').disabled = mass < baseCosts.gravity * Math.pow(1.5, gravityLevel);
-    document.getElementById('size-upgrade').disabled = mass < baseCosts.size * Math.pow(1.5, particleSizeLevel);
-    document.getElementById('auto-upgrade').disabled = mass < baseCosts.auto * Math.pow(1.5, autoClickerLevel);
-}
+    mario.x = 50;
+    mario.y = GAME_HEIGHT - 40;
+    mario.dx = 0;
+    mario.dy = 0;
+    mario.jumping = false;
+    mario.onLadder = false;
+    mario.climbing = false;
 
-// Upgrade functions
-function buyGravity() {
-    const cost = Math.floor(baseCosts.gravity * Math.pow(1.5, gravityLevel));
-    if (mass >= cost) {
-        mass -= cost;
-        gravityLevel++;
-    }
-}
+    barrels.forEach(barrel => gameArea.removeChild(barrel.element));
+    barrels = [];
 
-function buyParticleSize() {
-    const cost = Math.floor(baseCosts.size * Math.pow(1.5, particleSizeLevel));
-    if (mass >= cost) {
-        mass -= cost;
-        particleSizeLevel++;
-    }
-}
-
-function buyAutoClicker() {
-    const cost = Math.floor(baseCosts.auto * Math.pow(1.5, autoClickerLevel));
-    if (mass >= cost) {
-        mass -= cost;
-        autoClickerLevel++;
-        
-        // Start auto-clicker if first purchase
-        if (autoClickerLevel === 1) {
-            setInterval(() => {
-                for (let i = 0; i < autoClickerLevel; i++) {
-                    createParticle(
-                        Math.random() * gameArea.clientWidth,
-                        Math.random() * gameArea.clientHeight
-                    );
-                }
-            }, 1000);
-        }
-    }
+    gameLoop();
 }
 
 // Start the game
+setupLevel();
 gameLoop();
