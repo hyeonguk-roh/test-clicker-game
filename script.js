@@ -21,7 +21,8 @@ const barrelSpawnRate = 2000; // Spawn a barrel every 2 seconds
 
 // Mario movement
 document.addEventListener("keydown", (e) => {
-    if (gameOver && e.key === "r") {
+    if (gameOver && e.key.toLowerCase() === "r") {
+        console.log("Restarting game...");
         resetGame();
         return;
     }
@@ -120,7 +121,9 @@ function updateBarrels() {
             marioRect.top < barrelRect.bottom &&
             marioRect.bottom > barrelRect.top
         ) {
+            console.log("Game Over: Mario hit by barrel!");
             gameOver = true;
+            gameOverElement.textContent = "Game Over! Press R to Restart";
             gameOverElement.style.display = "block";
         }
     });
@@ -137,6 +140,7 @@ function checkWinCondition() {
         marioRect.top < paulineRect.bottom &&
         marioRect.bottom > paulineRect.top
     ) {
+        console.log("Game Over: Mario reached Pauline!");
         gameOver = true;
         gameOverElement.textContent = "You Win! Press R to Restart";
         gameOverElement.style.display = "block";
@@ -145,6 +149,7 @@ function checkWinCondition() {
 
 // Reset the game
 function resetGame() {
+    console.log("Resetting game...");
     marioPos = { x: 50, y: 10 };
     velocityY = 0;
     isJumping = false;
@@ -152,8 +157,14 @@ function resetGame() {
     gameOver = false;
     scoreElement.textContent = score;
     gameOverElement.style.display = "none";
+    
+    // Clear all barrels
     barrels.forEach((barrel) => barrel.element.remove());
     barrels = [];
+    
+    // Restart barrel spawning
+    clearInterval(barrelSpawnInterval);
+    barrelSpawnInterval = setInterval(spawnBarrel, barrelSpawnRate);
 }
 
 // Game loop
@@ -167,7 +178,7 @@ function gameLoop() {
 }
 
 // Start spawning barrels
-setInterval(spawnBarrel, barrelSpawnRate);
+let barrelSpawnInterval = setInterval(spawnBarrel, barrelSpawnRate);
 
 // Start the game loop
 gameLoop();
