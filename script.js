@@ -27,9 +27,17 @@ const gravityCostEl = document.getElementById('gravity-cost');
 const sizeCostEl = document.getElementById('size-cost');
 const autoCostEl = document.getElementById('auto-cost');
 
-// Click handler
+// Updated click handler
 gameArea.addEventListener('click', (e) => {
-    createParticle(e.clientX - gameArea.offsetLeft, e.clientY - gameArea.offsetTop);
+    // Get the position relative to the game area
+    const rect = gameArea.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Ensure coordinates are within bounds
+    if (x >= 0 && x <= gameArea.clientWidth && y >= 0 && y <= gameArea.clientHeight) {
+        createParticle(x, y);
+    }
 });
 
 // Create new particle
@@ -52,8 +60,8 @@ function createParticle(x, y) {
     particle.element.className = 'particle';
     particle.element.style.width = `${size}px`;
     particle.element.style.height = `${size}px`;
-    particle.element.style.left = `${x}px`;
-    particle.element.style.top = `${y}px`;
+    particle.element.style.left = `${particle.x - size/2}px`;
+    particle.element.style.top = `${particle.y - size/2}px`;
     particle.element.style.background = particle.color;
     particle.element.innerHTML = particle.symbol;
     
@@ -84,8 +92,8 @@ function gameLoop() {
             particle.y += particle.dy;
             
             // Update DOM
-            particle.element.style.left = `${particle.x}px`;
-            particle.element.style.top = `${particle.y}px`;
+            particle.element.style.left = `${particle.x - particle.size/2}px`;
+            particle.element.style.top = `${particle.y - particle.size/2}px`;
         } else {
             // Particle reached center
             mass += particle.mass;
