@@ -2,8 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0,
-        user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <title>Star Collector Challenge</title>
         <style>
             body {
@@ -39,7 +38,6 @@
                 position: absolute;
                 top: 20px;
                 left: 20px;
-
                 background: rgba(255, 255, 255, 0.1);
                 padding: 15px;
                 border-radius: 10px;
@@ -77,8 +75,6 @@
                 0% { opacity: 1; transform: scale(1); }
                 100% { opacity: 0; transform: scale(2); }
             }
-            /* 반응형 디자인 추가 */
-
             @media (max-width: 600px) {
                 .ui-panel {
                     top: 10px;
@@ -109,6 +105,8 @@
             const ctx = canvas.getContext('2d');
             const scoreDisplay = document.getElementById('score');
             const upgradeCostDisplay = document.getElementById('upgradeCost');
+            const gameContainer = document.querySelector('.game-container');
+
             // Canvas 크기 동적 설정
             function resizeCanvas() {
                 canvas.width = canvas.parentElement.clientWidth;
@@ -117,6 +115,7 @@
             }
             window.addEventListener('resize', resizeCanvas);
             resizeCanvas();
+
             let score = 0;
             let clickValue = 1;
             let upgradeCost = 10;
@@ -133,40 +132,49 @@
                     ctx.fill();
                 }
             }
+
             // 캔버스 초기화 및 배경 그리기
             function initCanvas() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 drawBackgroundStars();
             }
             initCanvas();
+
             // 클릭 및 터치 이벤트 처리
             canvas.addEventListener('click', handleInteraction);
             canvas.addEventListener('touchstart', handleInteraction);
+
             function handleInteraction(event) {
                 event.preventDefault(); // 터치 시 스크롤 방지
                 const rect = canvas.getBoundingClientRect();
                 let x, y;
+
                 // 터치 이벤트일 경우
                 if (event.type === 'touchstart') {
-                    x = event.touches[0].clientX;
-                    y = event.touches[0].clientY;
+                    x = event.touches[0].clientX - rect.left;
+                    y = event.touches[0].clientY - rect.top;
                 } else { // 클릭 이벤트일 경우
-                    x = event.clientX;
-                    y = event.clientY;
+                    x = event.clientX - rect.left;
+                    y = event.clientY - rect.top;
                 }
+
                 // 별 효과 생성
                 const star = document.createElement('div');
                 star.classList.add('star');
+                star.style.left = `${x}px`;
+                star.style.top = `${y}px`;
 
-                star.style.left = `${x + canvas.offsetLeft}px`;
-                star.style.top = `${y + canvas.offsetTop}px`;
-                document.body.appendChild(star);
+                // 별을 game-container에 추가 (canvas와 동일한 좌표계로 맞추기 위해)
+                gameContainer.appendChild(star);
+
                 // 점수 증가
                 score += clickValue;
                 scoreDisplay.textContent = score;
+
                 // 별 삭제
                 setTimeout(() => star.remove(), 1000);
             }
+
             // 업그레이드 기능
             function upgradeClick() {
                 if (score >= upgradeCost) {
