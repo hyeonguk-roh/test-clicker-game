@@ -1,273 +1,173 @@
-// Game constants
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 600;
-const GRAVITY = 0.5;
-const MARIO_SPEED = 3;
-const MARIO_JUMP_FORCE = 12;
-const BARREL_SPEED = 2;
-const BARREL_SPAWN_RATE = 2000; // Milliseconds
+const gameContainer = document.getElementById("game-container");
+const mario = document.getElementById("mario");
+const donkeyKong = document.getElementById("donkey-kong");
+const pauline = document.getElementById("pauline");
+const barrelsDiv = document.getElementById("barrels");
+const scoreElement = document.getElementById("score-value");
+const gameOverElement = document.getElementById("game-over");
 
-// Game state
-let mario = {
-    x: 50,
-    y: GAME_HEIGHT - 40,
-    width: 30,
-    height: 40,
-    dx: 0,
-    dy: 0,
-    jumping: false,
-    onLadder: false,
-    climbing: false
-};
-
-let platforms = [];
-let ladders = [];
-let barrels = [];
+let marioPos = { x: 50, y: 10 };
+let velocityY = 0;
+let isJumping = false;
+let score = 0;
 let gameOver = false;
-let gameWon = false;
+let barrels = [];
 
-// DOM elements
-const gameArea = document.getElementById('game-area');
-const marioElement = document.getElementById('mario');
-const gameOverElement = document.getElementById('game-over');
-const winElement = document.getElementById('win');
+const gravity = 0.5;
+const jumpForce = 10;
+const moveSpeed = 5;
+const barrelSpeed = 2;
+const barrelSpawnRate = 2000; // Spawn a barrel every 2 seconds
 
-// Level setup (platforms and ladders)
-function setupLevel() {
-    // Platforms (slanted to mimic the original game)
-    platforms.push({ x: 0, y: GAME_HEIGHT - 10, width: GAME_WIDTH, height: 10 }); // Ground
-    platforms.push({ x: 0, y: GAME_HEIGHT - 100, width: GAME_WIDTH - 100, height: 10 }); // Second platform
-    platforms.push({ x: 100, y: GAME_HEIGHT - 200, width: GAME_WIDTH - 200, height: 10 }); // Third platform
-    platforms.push({ x: 0, y: GAME_HEIGHT - 300, width: GAME_WIDTH - 300, height: 10 }); // Fourth platform
-    platforms.push({ x: 200, y: GAME_HEIGHT - 400, width: GAME_WIDTH - 400, height: 10 }); // Fifth platform
-    platforms.push({ x: 0, y: GAME_HEIGHT - 500, width: GAME_WIDTH - 500, height: 10 }); // Top platform
-
-    // Ladders
-    ladders.push({ x: 150, y: GAME_HEIGHT - 100, width: 20, height: 90 }); // Ground to second
-    ladders.push({ x: 600, y: GAME_HEIGHT - 200, width: 20, height: 90 }); // Second to third
-    ladders.push({ x: 150, y: GAME_HEIGHT - 300, width: 20, height: 90 }); // Third to fourth
-    ladders.push({ x: 600, y: GAME_HEIGHT - 400, width: 20, height: 90 }); // Fourth to fifth
-    ladders.push({ x: 150, y: GAME_HEIGHT - 500, width: 20, height: 90 }); // Fifth to top
-
-    // Render platforms
-    platforms.forEach(platform => {
-        const platformElement = document.createElement('div');
-        platformElement.className = 'platform';
-        platformElement.style.left = `${platform.x}px`;
-        platformElement.style.bottom = `${platform.y}px`;
-        platformElement.style.width = `${platform.width}px`;
-        platformElement.style.height = `${platform.height}px`;
-        gameArea.appendChild(platformElement);
-    });
-
-    // Render ladders
-    ladders.forEach(ladder => {
-        const ladderElement = document.createElement('div');
-        ladderElement.className = 'ladder';
-        ladderElement.style.left = `${ladder.x}px`;
-        ladderElement.style.bottom = `${ladder.y}px`;
-        ladderElement.style.width = `${ladder.width}px`;
-        ladderElement.style.height = `${ladder.height}px`;
-        gameArea.appendChild(ladderElement);
-    });
-}
-
-// Input handling
-document.addEventListener('keydown', (e) => {
-    if (gameOver || gameWon) {
-        if (e.key === 'r' || e.key === 'R') {
-            resetGame();
-        }
+// Mario movement
+document.addEventListener("keydown", (e) => {
+    if (gameOver && e.key === "r") {
+        resetGame();
         return;
     }
+    if (gameOver) return;
 
-    if (e.key === 'ArrowLeft') {
-        mario.dx = -MARIO_SPEED;
-    } else if (e.key === 'ArrowRight') {
-        mario.dx = MARIO_SPEED;
-    } else if (e.key === ' ') {
-        if (!mario.jumping && !mario.onLadder) {
-            mario.dy = MARIO_JUMP_FORCE;
-            mario.jumping = true;
+    if (e.key === "ArrowLeft") {
+        marioPos.x = Math.max(0, marioPos.x - moveSpeed);
+    } else if (e.key === "ArrowRight") {
+        marioPos.x = Math.min(770, marioPos.x + moveSpeed);
+    } else if (e.key === "ArrowUp" && !isJumping) {
+        velocityY = jumpForce;
+        isJumping = true;
+    }
+});
+
+// Apply gravity and update Mario's position
+function updateMario() {
+    velocityY -= gravity;
+    marioPos.y += velocityY;
+
+    // Check for platform collision
+    const platforms = document.querySelectorAll(".platform");
+    let onPlatform = false;
+
+    platforms.forEach((platform) => {
+        const platformRect = platform.getBoundingClientRect();
+        const marioRect = mario.getBoundingClientRect();
+        const platformY = parseInt(platform.style.bottom);
+
+        if (
+            marioPos.y <= platformY + 10 &&
+            marioPos.y >= platformY - 40 &&
+            marioPos.x + 30 > platformRect.left - gameContainer.getBoundingClientRect().left &&
+            marioPos.x < platformRect.right - gameContainer.getBoundingClientRect().left &&
+            velocityY <= 0
+        ) {
+            marioPos.y = platformY + 10;
+            velocityY = 0;
+            isJumping = false;
+            onPlatform = true;
         }
-    } else if (e.key === 'ArrowUp' && mario.onLadder) {
-        mario.climbing = true;
-        mario.dy = MARIO_SPEED;
-    } else if (e.key === 'ArrowDown' && mario.onLadder) {
-        mario.climbing = true;
-        mario.dy = -MARIO_SPEED;
-    }
-});
+    });
 
-document.addEventListener('keyup', (e) => {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        mario.dx = 0;
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        mario.climbing = false;
-        mario.dy = 0;
+    if (!onPlatform && marioPos.y <= 10) {
+        marioPos.y = 10;
+        velocityY = 0;
+        isJumping = false;
     }
-});
+
+    mario.style.left = marioPos.x + "px";
+    mario.style.bottom = marioPos.y + "px";
+}
 
 // Spawn barrels
 function spawnBarrel() {
-    if (gameOver || gameWon) return;
+    if (gameOver) return;
 
-    const barrel = {
-        x: 110,
-        y: GAME_HEIGHT - 500 - 20,
-        width: 20,
-        height: 20,
-        dx: BARREL_SPEED,
-        platformIndex: platforms.length - 1
-    };
+    const barrel = document.createElement("div");
+    barrel.classList.add("barrel");
+    barrel.style.left = donkeyKong.offsetLeft + 30 + "px";
+    barrel.style.top = donkeyKong.offsetTop + 40 + "px";
+    barrelsDiv.appendChild(barrel);
 
-    const barrelElement = document.createElement('div');
-    barrelElement.className = 'barrel';
-    barrelElement.style.left = `${barrel.x}px`;
-    barrelElement.style.bottom = `${barrel.y}px`;
-    gameArea.appendChild(barrelElement);
-    barrel.element = barrelElement;
-
-    barrels.push(barrel);
+    barrels.push({
+        element: barrel,
+        x: donkeyKong.offsetLeft + 30,
+        y: donkeyKong.offsetTop + 40,
+        velocityX: barrelSpeed,
+    });
 }
 
-setInterval(spawnBarrel, BARREL_SPAWN_RATE);
+// Update barrels
+function updateBarrels() {
+    barrels.forEach((barrel, index) => {
+        barrel.x += barrel.velocityX;
+        barrel.y -= 2; // Simulate rolling down slanted platforms
 
-// Collision detection
-function collides(a, b) {
-    return a.x < b.x + b.width &&
-           a.x + a.width > b.x &&
-           a.y < b.y + b.height &&
-           a.y + a.height > b.y;
+        barrel.element.style.left = barrel.x + "px";
+        barrel.element.style.top = barrel.y + "px";
+
+        // Remove barrels that go off-screen
+        if (barrel.y < 0 || barrel.x > 800) {
+            barrel.element.remove();
+            barrels.splice(index, 1);
+            score += 10;
+            scoreElement.textContent = score;
+        }
+
+        // Check collision with Mario
+        const marioRect = mario.getBoundingClientRect();
+        const barrelRect = barrel.element.getBoundingClientRect();
+
+        if (
+            marioRect.left < barrelRect.right &&
+            marioRect.right > barrelRect.left &&
+            marioRect.top < barrelRect.bottom &&
+            marioRect.bottom > barrelRect.top
+        ) {
+            gameOver = true;
+            gameOverElement.style.display = "block";
+        }
+    });
+}
+
+// Check win condition (Mario reaches Pauline)
+function checkWinCondition() {
+    const marioRect = mario.getBoundingClientRect();
+    const paulineRect = pauline.getBoundingClientRect();
+
+    if (
+        marioRect.left < paulineRect.right &&
+        marioRect.right > paulineRect.left &&
+        marioRect.top < paulineRect.bottom &&
+        marioRect.bottom > paulineRect.top
+    ) {
+        gameOver = true;
+        gameOverElement.textContent = "You Win! Press R to Restart";
+        gameOverElement.style.display = "block";
+    }
+}
+
+// Reset the game
+function resetGame() {
+    marioPos = { x: 50, y: 10 };
+    velocityY = 0;
+    isJumping = false;
+    score = 0;
+    gameOver = false;
+    scoreElement.textContent = score;
+    gameOverElement.style.display = "none";
+    barrels.forEach((barrel) => barrel.element.remove());
+    barrels = [];
 }
 
 // Game loop
 function gameLoop() {
-    if (gameOver || gameWon) return;
-
-    // Update Mario
-    mario.x += mario.dx;
-    mario.y += mario.dy;
-
-    // Apply gravity
-    if (!mario.onLadder) {
-        mario.dy -= GRAVITY;
+    if (!gameOver) {
+        updateMario();
+        updateBarrels();
+        checkWinCondition();
     }
-
-    // Keep Mario within bounds
-    if (mario.x < 0) mario.x = 0;
-    if (mario.x + mario.width > GAME_WIDTH) mario.x = GAME_WIDTH - mario.width;
-
-    // Check platform collisions
-    let onPlatform = false;
-    platforms.forEach(platform => {
-        if (mario.dy <= 0 && // Falling or stationary
-            mario.x + mario.width > platform.x &&
-            mario.x < platform.x + platform.width &&
-            mario.y >= platform.y &&
-            mario.y <= platform.y + platform.height + 10) {
-            mario.y = platform.y + platform.height;
-            mario.dy = 0;
-            mario.jumping = false;
-            onPlatform = true;
-        }
-    });
-
-    if (!onPlatform && !mario.onLadder) {
-        mario.jumping = true;
-    }
-
-    // Check ladder collisions
-    mario.onLadder = false;
-    ladders.forEach(ladder => {
-        if (collides(mario, {
-            x: ladder.x,
-            y: GAME_HEIGHT - ladder.y - ladder.height,
-            width: ladder.width,
-            height: ladder.height
-        })) {
-            mario.onLadder = true;
-            if (!mario.climbing) mario.dy = 0;
-        }
-    });
-
-    // Update barrels
-    barrels.forEach((barrel, index) => {
-        barrel.x += barrel.dx;
-
-        // Barrel falls off platform
-        let onPlatform = false;
-        const currentPlatform = platforms[barrel.platformIndex];
-        if (barrel.x + barrel.width > currentPlatform.x &&
-            barrel.x < currentPlatform.x + currentPlatform.width &&
-            barrel.y >= currentPlatform.y &&
-            barrel.y <= currentPlatform.y + 10) {
-            barrel.y = currentPlatform.y + 10;
-            onPlatform = true;
-        }
-
-        if (!onPlatform) {
-            barrel.y -= GRAVITY * 2;
-            barrel.platformIndex = Math.max(0, barrel.platformIndex - 1);
-        }
-
-        // Remove barrel if it falls off the screen
-        if (barrel.y < 0) {
-            gameArea.removeChild(barrel.element);
-            barrels.splice(index, 1);
-            return;
-        }
-
-        barrel.element.style.left = `${barrel.x}px`;
-        barrel.element.style.bottom = `${barrel.y}px`;
-
-        // Check collision with Mario
-        if (collides(mario, barrel)) {
-            gameOver = true;
-            gameOverElement.classList.remove('hidden');
-        }
-    });
-
-    // Check win condition (Mario reaches Pauline)
-    const pauline = {
-        x: GAME_WIDTH - 70,
-        y: GAME_HEIGHT - 500 - 30,
-        width: 20,
-        height: 30
-    };
-    if (collides(mario, pauline)) {
-        gameWon = true;
-        winElement.classList.remove('hidden');
-    }
-
-    // Update Mario's position
-    marioElement.style.left = `${mario.x}px`;
-    marioElement.style.bottom = `${mario.y}px`;
-
     requestAnimationFrame(gameLoop);
 }
 
-// Reset game
-function resetGame() {
-    gameOver = false;
-    gameWon = false;
-    gameOverElement.classList.add('hidden');
-    winElement.classList.add('hidden');
+// Start spawning barrels
+setInterval(spawnBarrel, barrelSpawnRate);
 
-    mario.x = 50;
-    mario.y = GAME_HEIGHT - 40;
-    mario.dx = 0;
-    mario.dy = 0;
-    mario.jumping = false;
-    mario.onLadder = false;
-    mario.climbing = false;
-
-    barrels.forEach(barrel => gameArea.removeChild(barrel.element));
-    barrels = [];
-
-    gameLoop();
-}
-
-// Start the game
-setupLevel();
+// Start the game loop
 gameLoop();

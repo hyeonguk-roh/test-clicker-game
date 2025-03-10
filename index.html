@@ -7,16 +7,20 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="game-container">
-        <div id="game-area">
-            <div id="mario"></div>
-            <div id="donkey-kong"></div>
-            <div id="pauline"></div>
-            <!-- Platforms and ladders will be dynamically generated -->
+    <div id="game-container">
+        <div id="mario"></div>
+        <div id="donkey-kong"></div>
+        <div id="pauline"></div>
+        <div id="platforms">
+            <div class="platform" style="bottom: 0px; width: 100%;"></div>
+            <div class="platform" style="bottom: 100px; width: 80%; left: 10%;"></div>
+            <div class="platform" style="bottom: 200px; width: 60%; left: 20%;"></div>
+            <div class="platform" style="bottom: 300px; width: 40%; left: 30%;"></div>
         </div>
-        <div id="game-over" class="hidden">Game Over! Press R to Restart</div>
-        <div id="win" class="hidden">You Win! Press R to Play Again</div>
+        <div id="barrels"></div>
     </div>
+    <div id="score">Score: <span id="score-value">0</span></div>
+    <div id="game-over">Game Over! Press R to Restart</div>
     <script src="game.js"></script>
 </body>
 </html>
